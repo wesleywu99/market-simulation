@@ -27,6 +27,7 @@ from environment.wom import WOMEngine, TrustWeightedWOM, WOMReception
 from llm.schemas import PurchaseDecision, PurchaseDecisionOutput, WOMOutput
 from simulation.controller import make_agent, _assign_tiers, TIER_TEMPERATURE
 from simulation.events import EventSchedule, apply_event
+from simulation.knowledge import KnowledgeRetriever, SeedKnowledge
 from simulation.population import PopulationSpec
 from simulation.metrics import MetricsCollector, StepMetrics
 from simulation.trace import NoOpTrace, TraceWriter
@@ -82,6 +83,13 @@ class SimulationConfig:
     # Population demographics — overrides the hardcoded defaults in
     # controller.py.  None = use built-in Chinese tech demographics.
     population_spec: Optional[PopulationSpec] = None
+
+    # Knowledge base — chunked market knowledge from large seed documents.
+    # When provided, the runner uses a KnowledgeRetriever to select
+    # per-agent context (adapted to cognitive style and adopter tier)
+    # instead of injecting the raw market_context string.
+    # None = fall back to market_context string (backward compatible).
+    knowledge_base: Optional[SeedKnowledge] = None
 
     # Tracing — pass a path to enable JSONL decision/WOM logs + step
     # snapshots.  None disables tracing (NoOpTrace is used internally).
@@ -159,6 +167,15 @@ class SimulationRunner:
             self.trace = TraceWriter(base_dir=config.trace_dir, run_id=config.run_id)
         else:
             self.trace = NoOpTrace()
+
+        # Knowledge retriever — per-agent context from large seed docs.
+        # Falls back to config.market_context when no knowledge_base.
+        if config.knowledge_base and config.knowledge_base.chunks:
+            self.knowledge_retriever: Optional[KnowledgeRetriever] = KnowledgeRetriever(
+                config.knowledge_base
+            )
+        else:
+            self.knowledge_retriever = None
 
         # System 1 telemetry — counted per run
         self.system1_rejects = 0
@@ -595,6 +612,13 @@ class SimulationRunner:
     ) -> Tuple[PurchaseDecisionOutput, Event]:
         """Call agent.decide_purchase with retry on transient failures."""
         last_exc: Exception | None = None
+
+        # Resolve market context: knowledge retriever (per-agent) or raw string
+        if self.knowledge_retriever is not None:
+            market_ctx = self.knowledge_retriever.retrieve(agent)
+        else:
+            market_ctx = self.config.market_context
+
         for attempt in range(max_retries):
             try:
                 tier = agent.state.profile.adopter_tier
@@ -604,7 +628,7 @@ class SimulationRunner:
                     current_step=step,
                     step_duration_days=self.config.step_duration_days,
                     temperature=TIER_TEMPERATURE.get(tier, 0.5),
-                    market_context=self.config.market_context,
+                    market_context=market_ctx,
                 )
             except Exception as e:
                 last_exc = e
@@ -754,6 +778,10 @@ class SimulationRunner:
         print(f"  MARKET SIMULATION - {self.product.name}")
         print(f"  {n} agents | {self.config.n_steps} steps | "
               f"{self.network_builder.describe()} ({edges} edges)")
+        if self.knowledge_retriever is not None:
+            print(f"  Knowledge: {self.knowledge_retriever.describe()}")
+        elif self.config.market_context:
+            print(f"  Market context: {len(self.config.market_context)} chars (raw string)")
         print("=" * 64)
 
     def _print_step_header(self, step: int, n_evaluators: int, reason: str) -> None:

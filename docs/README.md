@@ -43,4 +43,5 @@ This means the wiki is append-only for major decisions but editable for refineme
 - [30_monte_carlo.md](30_monte_carlo.md) — Seed-sweep wrapper with 95% CI bands
 - [30_phase2_agent_resilience.md](30_phase2_agent_resilience.md) — Phase 2.0: decay, time semantics, cognitive diversity, memory bounds, event queue
 - [30_phase3_forecast_grounding.md](30_phase3_forecast_grounding.md) — Phase 3.0: category context, population profiles, parameter sweep, validation suite
+- [30_knowledge_retrieval.md](30_knowledge_retrieval.md) — Chunked knowledge ingestion + per-agent retrieval from large seed docs
 - [40_seed_case_womens_apparel.md](40_seed_case_womens_apparel.md) — First real product case (draft)

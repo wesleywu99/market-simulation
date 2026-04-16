@@ -296,6 +296,7 @@ class MonteCarloRunner:
             event_schedule=copy.deepcopy(self.config_template.event_schedule),
             market_context=self.config_template.market_context,
             population_spec=self.config_template.population_spec,
+            knowledge_base=self.config_template.knowledge_base,
             trace_dir=self.config_template.trace_dir if self.per_run_trace else None,
             run_id=None,
         )

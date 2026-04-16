@@ -1,10 +1,10 @@
 # 30 -- Phase 3.0: Forecast Grounding
 
 ## Version
-v1.0 (2026-04-16) -- All four subsystems implemented and smoke-tested.
+v1.1 (2026-04-16) -- Five subsystems + knowledge retrieval.
 
 ## Status
-Done. Ready for seed-case usage.
+Done. P3-1 through P3-5 complete; P3-7 (knowledge retrieval) added for large seed docs.
 
 ## Motivation
 
@@ -210,6 +210,31 @@ values can all produce legitimate deviations.
 
 ---
 
+## P3-7: Knowledge Retrieval System
+
+### Problem
+The user's real-world seed documents are not 3-5 sentence briefings -- they are
+multi-dimensional reports (competitor product crawls, industry reports, government
+data, consumer reviews).  Injecting the entire document into every agent's prompt
+would blow token limits and drown out relevance.
+
+### Design
+Three-layer pipeline in `simulation/knowledge.py`:
+1. **DocumentProcessor** -- parse markdown into categorized `KnowledgeChunk` objects
+2. **SeedKnowledge** -- indexed container with category/brand/tag queries
+3. **KnowledgeRetriever** -- select relevant chunks per agent based on cognitive
+   style + adopter tier, within a token budget (default 800)
+
+When `SimulationConfig.knowledge_base` is set, the runner instantiates a
+`KnowledgeRetriever` and calls `retriever.retrieve(agent)` per agent, replacing
+the raw `market_context` string in the purchase decision prompt.
+
+Backward compatible: `knowledge_base=None` falls back to `market_context`.
+
+See [30_knowledge_retrieval.md](30_knowledge_retrieval.md) for full design.
+
+---
+
 ## Code cleanup (P3-5)
 
 Also completed during this phase:
@@ -219,4 +244,4 @@ Also completed during this phase:
   `PurchaseDecisionOutput`, `dataclass`, `field`, `Tuple` from controller
 - **Updated docstring**: controller.py now describes itself as "agent factory"
 - **MC clone_config**: now forwards all Phase 2.0 + 3.0 config fields
-  (step_duration_days, decay, event_schedule, market_context, population_spec)
+  (step_duration_days, decay, event_schedule, market_context, population_spec, knowledge_base)
